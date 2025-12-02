@@ -1,5 +1,5 @@
-import express from "express";
-import { supabase } from "../supabaseClient.js";
+const express = require("express")
+const { supabase } = require("../../supabaseClient");
 
 const router = express.Router();
 
@@ -15,7 +15,6 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   const { name } = req.body;
-
   const { data, error } = await supabase
     .from("channels")
     .insert({ name })
@@ -72,4 +71,4 @@ router.get("/:id/members", async (req, res) => {
 });
 
 
-export default router;
+module.exports = router;
