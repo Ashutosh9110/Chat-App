@@ -5,6 +5,7 @@ import { sendMessage, getMessages } from "../controllers/messageController.js";
 const router = express.Router();
 
 router.post("/", supabaseAuth, sendMessage);
+
 router.get("/:id", supabaseAuth, getMessages);
 
 export default router;

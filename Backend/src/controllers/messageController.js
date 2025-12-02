@@ -3,7 +3,13 @@ import { supabase } from "../server/supabase.js";
 export const sendMessage = async (req, res) => {
   const { content, channel_id } = req.body;
   const user_id = req.user.id;
-
+  // console.log("REQ USER:", req.user);
+  // console.log("REQ BODY:", req.body);
+  console.log("INSERTING MESSAGE:", {
+    user_id: req.user.id,
+    channel_id: req.body.channel_id,
+    content: req.body.content,
+  });
   if (!content || !channel_id) {
     return res.status(400).json({ error: "Missing fields" });
   }
@@ -13,6 +19,7 @@ export const sendMessage = async (req, res) => {
     .insert({ user_id, channel_id, content })
     .select()
     .single();
+    console.log("MESSAGE ERROR:", error);
 
   if (error) return res.status(500).json({ error: error.message });
 

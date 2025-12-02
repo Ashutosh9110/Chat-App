@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+
 import { supabase } from "../lib/supabase";
+import API from "../api";
 
 export default function ChatBox({ channel }) {
   const [messages, setMessages] = useState([]);
@@ -34,7 +35,7 @@ export default function ChatBox({ channel }) {
   
 
   const loadHistory = async () => {
-    const res = await axios.get(`/messages/${channel.id}`);
+    const res = await API.get(`/messages/${channel.id}`);
     console.log("history returned:", res.data);
 
     // ensure array
@@ -60,19 +61,25 @@ export default function ChatBox({ channel }) {
   };
 
   const sendMessage = async () => {
-    await axios.post(`/messages/${channel.id}`, { message: text });
+    if (!text.trim()) return;
+    await API.post("/messages", {
+      content: text,
+      channel_id: channel.id,
+    });
     setText("");
   };
+  
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto bg-white p-4 rounded shadow">
-        {messages.map((msg, idx) => (
-          <div key={idx} className="mb-2">
-            <span className="font-semibold">{msg.user}: </span>
-            {msg.message}
-          </div>
-        ))}
+      {messages.map((msg) => (
+        <div key={msg.id} className="mb-2">
+          <span className="font-semibold">{msg.user_id}: </span>
+          {msg.content}
+        </div>
+      ))}
+
       </div>
 
       <div className="mt-4 flex gap-2">

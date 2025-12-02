@@ -1,4 +1,4 @@
-// Backend/src/middleware/supabaseAuth.js
+
 import axios from "axios";
 
 export const supabaseAuth = async (req, res, next) => {
