@@ -9,17 +9,13 @@ import ProtectedRoute from "./context/ProtectedRoute.jsx";
 function App() {
   return (
     <Routes>
+      <Route path="/" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/login" element={<Login />} />
 
       <Route
         path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
+        element={<ProtectedRoute><Dashboard /></ProtectedRoute>}/>
     </Routes>
   );
 }
