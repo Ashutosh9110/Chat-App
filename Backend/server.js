@@ -1,3 +1,3 @@
-import channelRoutes from "./routes/channels.js";
+import channelRoutes from "./routes/channelRoutes.js";
 
 app.use("/channels", channelRoutes);
