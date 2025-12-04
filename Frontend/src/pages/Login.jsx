@@ -16,27 +16,19 @@ export default function Login() {
       email,
       password,
     });
-  
     if (error) {
       setError(error.message);
       return;
     }
-    const token = data.session.access_token; // SUPABASE ACCESS TOKEN
-  
-    localStorage.setItem("token", token);
-  
     navigate("/dashboard");
   };
   
-  
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">
         <h2 className="text-2xl font-semibold text-center mb-6 text-gray-800">
           Login
         </h2>
-
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-600 mb-1">Email</label>
@@ -65,12 +57,10 @@ export default function Login() {
           {error && (
             <p className="text-red-500 text-sm text-center">{error}</p>
           )}
-
           <button className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition cursor-pointer">
             Login
           </button>
         </form>
-
         <p className="text-center text-sm text-gray-600 mt-4">
           Don't have an account?{" "}
           <Link to="/signup" className="text-blue-600 hover:underline">

@@ -5,149 +5,136 @@ import API from "../api";
 export default function ChatBox({ channel }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
+  const [typingUsers, setTypingUsers] = useState([]);
 
-  // simple in-memory cache: user_id -> { name, email }
   const profileCache = useRef(new Map());
-  const subscriptionRef = useRef(null);
+  const realtimeRef = useRef(null);
   const presenceRef = useRef(null);
 
-
-  
+ 
   useEffect(() => {
-    const initPresence = async () => {
+    if (!channel) return;
+
+    let presenceChannel = null;
+
+    const init = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-      const p = supabase.channel(`typing-${channel.id}`, {
-        config: { presence: { key: user.id } }
+
+      presenceChannel = supabase.channel(`presence-typing-${channel.id}`, {
+        config: { presence: { key: user.id } },
       });
-      await p.subscribe(async (status) => {
+
+      presenceChannel
+        .on("presence", { event: "sync" }, () => {
+          const state = presenceChannel.presenceState();
+          const typing = [];
+          for (const uid in state) {
+            const meta = state[uid][0];
+            if (meta?.typing && uid !== user.id) typing.push(uid);
+          }
+          setTypingUsers(typing);
+        })
+        .on("presence", { event: "join" }, ({ key, newPresences }) => {
+          const meta = newPresences[0];
+          if (meta.typing) setTypingUsers((prev) => [...new Set([...prev, key])]);
+        })
+        .on("presence", { event: "leave" }, ({ key }) => {
+          setTypingUsers((prev) => prev.filter((x) => x !== key));
+        });
+
+      await presenceChannel.subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
-          await p.track({ typing: false });
+          await presenceChannel.track({ typing: false });
         }
       });
-      presenceRef.current = p;
+
+      presenceRef.current = presenceChannel;
     };
-    initPresence();
+
+    init();
+
     return () => {
       if (presenceRef.current) {
         supabase.removeChannel(presenceRef.current);
         presenceRef.current = null;
       }
     };
-  }, [channel.id]);
-  
-
+  }, [channel?.id]);
 
   useEffect(() => {
     if (!channel) return;
 
-    // cleanup previous subscription
-    if (subscriptionRef.current) {
-      supabase.removeChannel(subscriptionRef.current);
-      subscriptionRef.current = null;
+    // cleanup old subscription
+    if (realtimeRef.current) {
+      supabase.removeChannel(realtimeRef.current);
+      realtimeRef.current = null;
     }
 
-    let subscribed = false;
-
     const start = async () => {
-      try {
-        await loadHistory();
+      await loadHistory();
 
-        // 2) subscribe to realtime inserts
-        const channelName = `realtime-messages-${channel.id}`;
-        const sub = supabase
-          .channel(channelName)
-          .on(
-            "postgres_changes",
-            {
-              event: "INSERT",
-              schema: "public",
-              table: "messages",
-              filter: `channel_id=eq.${channel.id}`,
-            },
-            async (payload) => {
-              // payload.new is the inserted row
-              const newMsg = payload.new || {};
-              let profile = profileCache.current.get(newMsg.user_id);
+      const sub = supabase
+        .channel(`rt-messages-${channel.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `channel_id=eq.${channel.id}`,
+          },
+          handleIncomingMessage
+        )
+        .subscribe();
 
-              // if we don't have profile cached, try to fetch name/email
-              if (!profile) {
-                try {
-                  const { data: p } = await supabase
-                    .from("profiles")
-                    .select("name,email")
-                    .eq("id", newMsg.user_id)
-                    .single();
-
-                  profile = p || null;
-                  if (profile) profileCache.current.set(newMsg.user_id, profile);
-                } catch (err) {
-                  // ignore; we'll show fallback later
-                }
-              }
-
-              // append message (make sure created_at present)
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: newMsg.id,
-                  content: newMsg.content,
-                  user_id: newMsg.user_id,
-                  created_at: newMsg.created_at || new Date().toISOString(),
-                  profiles: profile ? { name: profile.name, email: profile.email } : undefined,
-                },
-              ]);
-            }
-          )
-          .subscribe();
-
-        subscriptionRef.current = sub;
-        subscribed = true;
-      } catch (e) {
-        console.error("Error starting realtime:", e);
-      }
+      realtimeRef.current = sub;
     };
 
     start();
 
     return () => {
-      // safe cleanup
-      if (subscriptionRef.current) {
-        supabase.removeChannel(subscriptionRef.current);
-        subscriptionRef.current = null;
+      if (realtimeRef.current) {
+        supabase.removeChannel(realtimeRef.current);
+        realtimeRef.current = null;
       }
     };
-  }, [channel?.id]); // only re-run when channel changes
+  }, [channel?.id]);
+
+  const handleIncomingMessage = async (payload) => {
+    const msg = payload.new;
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === msg.id)) return prev; // prevent duplicates
+      return [...prev, formatMessage(msg)];
+    });
+  };
 
   const loadHistory = async () => {
     try {
       const res = await API.get(`/messages/${channel.id}`);
-      // backend returns messages with profiles(name,email) when possible
       const items = Array.isArray(res.data) ? res.data : [];
-
-      // seed cache with returned profiles
       items.forEach((m) => {
-        if (m.profiles && m.user_id) {
-          profileCache.current.set(m.user_id, {
-            name: m.profiles.name,
-            email: m.profiles.email,
-          });
+        if (m.profiles) {
+          profileCache.current.set(m.user_id, m.profiles);
         }
       });
-
-      setMessages(items.map((m) => ({
-        id: m.id,
-        content: m.content,
-        user_id: m.user_id,
-        created_at: m.created_at,
-        profiles: m.profiles,
-      })));
+      setMessages(items.map((m) => formatMessage(m)));
     } catch (err) {
-      console.error("loadHistory error:", err);
+      console.error("loadHistory error", err);
       setMessages([]);
     }
+  };
+
+  const formatMessage = (m) => {
+    return {
+      id: m.id,
+      content: m.content,
+      user_id: m.user_id,
+      created_at: m.created_at,
+      profiles: m.profiles || profileCache.current.get(m.user_id),
+    };
   };
 
   const sendMessage = async () => {
@@ -165,9 +152,10 @@ export default function ChatBox({ channel }) {
       content: text,
       user_id: user.id,
       created_at: new Date().toISOString(),
-      profiles: { name: cached.name, email: cached.email },
+      profiles: cached,
       pending: true,
     };
+
     setMessages((prev) => [...prev, optimistic]);
     setText("");
 
@@ -179,71 +167,66 @@ export default function ChatBox({ channel }) {
       });
 
       const saved = res.data;
+
       setMessages((prev) =>
-        prev.map((m) => (m.id === optimistic.id ? {
-          id: saved.id,
-          content: saved.content,
-          user_id: saved.user_id,
-          created_at: saved.created_at,
-          profiles: { name: cached.name, email: cached.email },
-        } : m))
+        prev.map((m) =>
+          m.id === optimistic.id
+            ? formatMessage(saved)
+            : m
+        )
       );
     } catch (err) {
-      console.error("Send message failed:", err);
-      // mark optimistic as failed
+      console.error("Send failed", err);
       setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? { ...m, failed: true } : m)));
     }
   };
 
-  const formatTime = (iso) => {
-    if (!iso) return "";
-    try {
-      const d = new Date(iso);
-      return d.toLocaleString(); // adjust to whatever format you want
-    } catch {
-      return iso;
-    }
+  const handleTyping = (val) => {
+    setText(val);
+
+    if (!presenceRef.current) return;
+
+    presenceRef.current.track({ typing: true });
+
+    if (window.__typingTimer) clearTimeout(window.__typingTimer);
+    window.__typingTimer = setTimeout(() => {
+      presenceRef.current.track({ typing: false });
+    }, 1500);
   };
+
+  const fmt = (iso) => new Date(iso).toLocaleTimeString();
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto bg-white p-4 rounded shadow">
         {messages.map((msg) => (
           <div key={msg.id} className="mb-2">
-            <span className="font-semibold">
-              {msg.profiles?.name || msg.profiles?.email || "Unknown"}:
-            </span>{" "}
-            <span>{msg.content}</span>
-            <div className="text-xs text-gray-400">
-              {formatTime(msg.created_at)} {msg.pending ? "(sending...)" : msg.failed ? "(failed)" : ""}
-            </div>
+            <span className="font-semibold">{msg.profiles?.name || msg.profiles?.email || "Unknown"}</span>: {msg.content}
+            <div className="text-xs text-gray-400">{fmt(msg.created_at)} {msg.pending ? "(sending...)" : msg.failed ? "(failed)" : ""}</div>
           </div>
         ))}
+
+        {typingUsers.length > 0 && (
+          <div className="text-sm text-gray-500 italic mt-2">
+            {typingUsers.length === 1 ? "Someone is typing..." : "Multiple people are typing..."}
+          </div>
+        )}
       </div>
 
       <div className="mt-4 flex gap-2">
         <input
           className="flex-1 border p-2 rounded"
           value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-          
-            if (presenceRef.current) {
-              presenceRef.current.track({ typing: true });
-          
-              setTimeout(() => {
-                presenceRef.current.track({ typing: false });
-              }, 2000);
+          onChange={(e) => handleTyping(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
             }
           }}
-          
-          
           placeholder="Type a message..."
-          
         />
-        <button onClick={sendMessage} className="bg-blue-600 text-white px-4 py-2 rounded">
-          Send
-        </button>
+        <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={sendMessage}>Send</button>
       </div>
     </div>
   );
