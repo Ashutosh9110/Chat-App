@@ -204,7 +204,10 @@ export default function ChatBox({ channel }) {
           ref={scrollRef}
           className="flex-1 overflow-y-auto bg-white p-4 rounded border min-h-0"
           onScroll={(e) => {
-            if (e.target.scrollTop < 80) loadOlder()
+            const top = e.target.scrollTop;
+            if (top <= 10 && hasMore && !loadingMore) {
+                loadOlder();
+            }
           }}
         >
         {messages.map((msg) => (

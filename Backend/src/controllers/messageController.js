@@ -34,7 +34,7 @@ export const getMessages = async (req, res) => {
     .from("messages")
     .select("id, content, created_at, user_id, profiles(name,email)")
     .eq("channel_id", channel_id)
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: true })
     .limit(limit);
   if (before) {
     query = query.lt("created_at", before);
@@ -44,7 +44,7 @@ export const getMessages = async (req, res) => {
     console.error("GET MESSAGES ERROR:", error);
     return res.status(500).json({ error: error.message });
   }
-  res.json(data.reverse());
+  res.json(data);
 };
 
 
