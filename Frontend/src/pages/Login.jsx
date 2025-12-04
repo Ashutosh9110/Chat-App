@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -23,6 +23,19 @@ export default function Login() {
     navigate("/dashboard");
   };
   
+  useEffect(() => {
+    const setup = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.realtime.setAuth(session.access_token);
+      }
+    }
+  
+    setup();
+  }, []);
+  
+
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">

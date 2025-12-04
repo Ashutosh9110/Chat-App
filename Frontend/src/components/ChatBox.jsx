@@ -8,6 +8,7 @@ export default function ChatBox({ channel }) {
   const [typingUsers, setTypingUsers] = useState([])
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [page, setPage] = useState(1)
 
   const profileCache = useRef(new Map())
   const realtimeRef = useRef(null)
@@ -72,14 +73,13 @@ export default function ChatBox({ channel }) {
         .channel(`rt-messages-${channel.id}`)
         .on(
           "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "messages",
-            filter: `channel_id=eq.${channel.id}`,
-          },
-          handleIncomingMessage
-        )
+          { event: "INSERT", schema: "public", table: "messages" },
+          (payload) => {
+            if (payload.new.channel_id === channel.id) {
+              handleIncomingMessage(payload)
+            }
+          }
+        )        
         .subscribe()
       realtimeRef.current = sub
     }
@@ -105,43 +105,34 @@ export default function ChatBox({ channel }) {
 
   const loadHistory = async () => {
     try {
-      const res = await API.get(`/messages/${channel.id}?limit=30`)
-      const items = res.data
-      if (items.length < 30) setHasMore(false)
-      items.forEach((m) => {
-        if (m.profiles) profileCache.current.set(m.user_id, m.profiles)
-      })
-      setMessages(items.map(formatMessage))
-      setTimeout(() => {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-      }, 30)
+      const res = await API.get(`/messages/${channel.id}?page=1&limit=30`);
+      const items = res.data;
+      if (items.length < 30) setHasMore(false);
+      setPage(1);
+      setMessages(items.map(formatMessage));
     } catch (err) {
-      console.error("loadHistory error", err)
+      console.error("History error:", err);
     }
-  }
-
+  };
+  
   const loadOlder = async () => {
-    if (!hasMore || loadingMore || messages.length === 0) return
-    setLoadingMore(true)
-    const oldest = messages[0].created_at
-    const prevHeight = scrollRef.current.scrollHeight
+    if (!hasMore || loadingMore) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
     try {
-      const res = await API.get(
-        `/messages/${channel.id}?limit=30&before=${oldest}`
-      )
-      const older = res.data
-      if (older.length < 30) setHasMore(false)
-      const formatted = older.map(formatMessage)
-      setMessages((prev) => [...formatted, ...prev])
-      setTimeout(() => {
-        const newHeight = scrollRef.current.scrollHeight
-        scrollRef.current.scrollTop = newHeight - prevHeight
-      }, 20)
+      const res = await API.get(`/messages/${channel.id}?page=${nextPage}&limit=30`);
+      const older = res.data;
+      if (older.length < 30) setHasMore(false);
+      setMessages(prev => [...older.map(formatMessage), ...prev]);
+      setPage(nextPage);
     } catch (err) {
-      console.error("loadOlder error", err)
+      console.error("loadOlder error", err);
     }
-    setLoadingMore(false)
-  }
+    setLoadingMore(false);
+  };
+  
+  
+
   const formatMessage = (m) => ({
     id: m.id,
     content: m.content,
@@ -204,10 +195,15 @@ export default function ChatBox({ channel }) {
           ref={scrollRef}
           className="flex-1 overflow-y-auto bg-white p-4 rounded border min-h-0"
           onScroll={(e) => {
-            const top = e.target.scrollTop;
-            if (top <= 10 && hasMore && !loadingMore) {
-                loadOlder();
-            }
+            {hasMore && (
+              <button
+                className="text-blue-600 underline mb-3"
+                disabled={loadingMore}
+                onClick={loadOlder}
+              >
+                {loadingMore ? "Loading..." : "Load older messages"}
+              </button>
+            )}
           }}
         >
         {messages.map((msg) => (

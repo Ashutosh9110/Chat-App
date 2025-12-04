@@ -10,6 +10,18 @@ export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState(null)
 
   useEffect(() => {
+    const setup = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.realtime.setAuth(session.access_token);
+      }
+    }
+  
+    setup();
+  }, []);
+  
+
+  useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return

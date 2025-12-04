@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { Link } from "react-router-dom";
 
@@ -16,9 +16,21 @@ export default function Signup() {
 
     const { error } = await supabase.auth.signUp({ email, password, options: { data: { name: name }}});
     if (error) setError(error.message);
-    // else alert("Check your email for verification!");
+    else alert("Sign up successfull");
     setLoading(false);
   };
+
+  useEffect(() => {
+    const setup = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.realtime.setAuth(session.access_token);
+      }
+    }
+  
+    setup();
+  }, []);
+  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
