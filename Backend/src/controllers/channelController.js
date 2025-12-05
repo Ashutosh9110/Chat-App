@@ -76,9 +76,6 @@ export const createChannel = async (req, res) => {
 };
 
 
-
-
-
 export const joinChannel = async (req, res) => {
   const channel_id = req.params.id;
   const user_id = req.user.id;
@@ -99,7 +96,6 @@ export const joinChannel = async (req, res) => {
   await supabase.from("channel_members").insert({ channel_id, user_id });
   res.json({ success: true });
 };
-
 
 
 export const leaveChannel = async (req, res) => {

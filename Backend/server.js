@@ -7,7 +7,20 @@ import messageRoutes from "./src/routes/messageRoutes.js";
 import { supabaseAuth } from "./src/middleware/supabaseAuth.js";
 
 const app = express();
-app.use(cors());
+
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://anytime-chat.netlify.app"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
+
 app.use(express.json());
 
 app.use("/auth", authRoutes);
@@ -15,6 +28,7 @@ app.use("/auth", authRoutes);
 app.use("/channels", supabaseAuth, channelRoutes);
 app.use("/messages", supabaseAuth, messageRoutes);
 
-app.listen(5000, () => {
-  console.log("Server running on http://localhost:5000");
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
