@@ -1,38 +1,39 @@
-import React, { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react"
+import { supabase } from "../lib/supabase"
+import { Link, useNavigate } from "react-router-dom"
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const navigate = useNavigate()
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    setError("");
+    e.preventDefault()
+    setError("")
   
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
-    });
+    })
+
     if (error) {
-      setError(error.message);
-      return;
+      setError(error.message)
+      return
     }
-    navigate("/dashboard");
-  };
+    await supabase.realtime.setAuth(data.session.access_token)
+    navigate("/dashboard")
+  }
   
   useEffect(() => {
     const setup = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        await supabase.realtime.setAuth(session.access_token);
+        await supabase.realtime.setAuth(session.access_token)
       }
     }
-  
-    setup();
-  }, []);
+    setup()
+  }, [])
   
 
 
@@ -82,5 +83,5 @@ export default function Login() {
         </p>
       </div>
     </div>
-  );
+  )
 }
