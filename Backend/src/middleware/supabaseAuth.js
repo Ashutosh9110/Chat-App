@@ -8,7 +8,7 @@ export const supabaseAuth = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({ error: "No token provided" });
     }
-
+    req.supabaseToken = token; 
     const SUPABASE_URL = process.env.SUPABASE_URL;
     const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 

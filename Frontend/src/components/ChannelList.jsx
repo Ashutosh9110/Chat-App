@@ -1,39 +1,47 @@
-import React, { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase"; 
-import API from "../api";
-import { PlusCircleIcon, XMarkIcon, HashtagIcon, LockClosedIcon } from '@heroicons/react/24/outline'; 
-import { HashtagIcon as SolidHashtagIcon } from '@heroicons/react/24/solid';
+import React, { useEffect, useState } from "react"
+import { supabase } from "../lib/supabase" 
+import API from "../api"
+import { PlusCircleIcon, XMarkIcon, HashtagIcon, LockClosedIcon } from '@heroicons/react/24/outline' 
+import { HashtagIcon as SolidHashtagIcon } from '@heroicons/react/24/solid'
 
 export default function ChannelList({ onSelect }) {
-    const [channels, setChannels] = useState([]);
-    const [showCreate, setShowCreate] = useState(false);
-    const [name, setName] = useState("");
-    const [isPublic, setIsPublic] = useState(false);
+    const [channels, setChannels] = useState([])
+    const [showCreate, setShowCreate] = useState(false)
+    const [name, setName] = useState("")
+    const [isPublic, setIsPublic] = useState(false)
 
     const fetchChannels = () => {
       API.get("/channels")
-        .then((res) => setChannels(res.data))
-        .catch((err) => console.log(err));
-    };
+      .then((res) => {
+        console.log("CHANNEL RESPONSE:", res.data)
+        setChannels(Array.isArray(res.data) ? res.data : [])
+      })
+      .catch((err) => {
+        console.log(err)
+        setChannels([])
+      })    
+    }
+    
     useEffect(() => {
-      fetchChannels();
-    }, []);
+      fetchChannels()
+    }, [])
 
     useEffect(() => {
       const chListener = supabase
         .channel("channels-changes")
         .on("postgres_changes", { event: "*", schema: "public", table: "channels" }, fetchChannels)
-        .subscribe();
+        .subscribe()
+        
 
-      return () => supabase.removeChannel(chListener);
-    }, []);
+      return () => supabase.removeChannel(chListener)
+    }, [])
 
     const createChannel = async () => {
-      await API.post("/channels", { name, is_public: isPublic });
-      setName("");
-      setIsPublic(false);
-      setShowCreate(false);
-    };
+      await API.post("/channels", { name, is_public: isPublic })
+      setName("")
+      setIsPublic(false)
+      setShowCreate(false)
+    }
 
     return (
       <div className="w-full text-gray-800 flex flex-col"> 
@@ -110,5 +118,5 @@ export default function ChannelList({ onSelect }) {
           </div>
         )}
       </div>
-    );
+    )
 }

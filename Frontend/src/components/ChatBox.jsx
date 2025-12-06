@@ -117,40 +117,39 @@ export default function ChatBox({ channel }) {
   }
 
   const handleIncomingMessage = async (payload) => {
-    const rawMsg = payload.new
-    let userProfile = profileCache.current.get(rawMsg.user_id)
-
-    // If we don't know who this is yet, fetch them from Supabase
-    if (!userProfile) {
+    const rawMsg = payload.new;
+      let userProfile = profileCache.current.get(rawMsg.user_id);
+      if (!userProfile) {
       try {
-        const { data } = await supabase
-          .from('profiles')
-          .select('name, email') // Adjust columns based on your DB
-          .eq('id', rawMsg.user_id)
-          .single()
-        
-        if (data) {
-          userProfile = data
-          profileCache.current.set(rawMsg.user_id, data)
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        const res = await API.get(`/messages/${rawMsg.id}/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        if (res.data) {
+          userProfile = res.data;
+          profileCache.current.set(rawMsg.user_id, res.data);
         }
-      } catch (error) {
-        console.error("Error fetching incoming user profile", error)
+      } catch (err) {
+        console.error("Failed to fetch profile for incoming message:", err);
       }
     }
-
     const newMsg = {
-        ...formatMessage(rawMsg),
-        profiles: userProfile
-    }
+      ...formatMessage(rawMsg),
+      profiles: userProfile,
+    };
     setMessages((prev) => {
-      if (prev.some((m) => m.id === newMsg.id)) return prev
-      return [...prev, newMsg]
-    })
-
+      if (prev.some((m) => m.id === newMsg.id)) return prev;
+      return [...prev, newMsg];
+    });
     setTimeout(() => {
-      if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }, 50)
-  }
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    }, 50);
+  };
+  
 
   const formatMessage = (m) => ({
     id: m.id,
