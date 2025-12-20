@@ -47,7 +47,7 @@ export default function ChannelList({ onSelect }) {
       <div className="w-full text-gray-800 flex flex-col"> 
         <h3 className="text-lg font-bold mb-4 text-gray-900">Channels</h3>
         <button
-          className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-2.5 rounded-lg font-semibold mb-4 shadow-md hover:bg-blue-600 transition-colors"
+          className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-2.5 rounded-lg font-semibold mb-4 shadow-md hover:bg-blue-600 transition-colors cursor-pointer"
           onClick={() => setShowCreate(true)}
         >
           <PlusCircleIcon className="w-5 h-5"/> Create Channel

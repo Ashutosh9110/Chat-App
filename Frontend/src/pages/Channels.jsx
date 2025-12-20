@@ -52,7 +52,7 @@ export default function Channels() {
           Public Channel
         </label>
 
-        <button className="bg-blue-600 text-white px-4 py-2 rounded"
+        <button className="bg-blue-600 text-white px-4 py-2 rounded cursor-pointer"
           onClick={create}
         >
           Create Channel
